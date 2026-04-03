@@ -2,9 +2,9 @@ import streamlit as st
 from groq import Groq
 
 # Page configuration
-st.set_page_config(page_title="AI Student Chatbot", page_icon="🤖")
+st.set_page_config(page_title="SELVA AI Student Chatbot", page_icon="🤖")
 
-st.title("🤖 AI Chatbot for Students")
+st.title("🤖 SELVA AI Chatbot for AI&DS Students")
 st.write("Ask questions about Machine Learning, Python, or assignments.")
 
 # Initialize Groq API
