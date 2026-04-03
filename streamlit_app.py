@@ -1,35 +1,40 @@
 import streamlit as st
 import pandas as pd
 from groq import Groq
-import plotly.express as px
 import graphviz
+import plotly.express as px
 from datetime import date
-from streamlit_camera_input_live import camera_input_live
 import os
 
 st.set_page_config(page_title="AI Classroom Platform", layout="wide")
 
-st.title("🎓 AI Classroom System")
+st.title("🎓 AI Classroom Platform")
 
-# API
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+# ---------------- API ----------------
 
-# Sidebar menu
+try:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except:
+    st.error("Please add GROQ_API_KEY in Streamlit secrets")
+    st.stop()
+
+# ---------------- MENU ----------------
+
 menu = st.sidebar.radio(
     "Select Module",
     [
-        "AI Chatbot",
-        "Mobile Attendance",
-        "Attendance Dashboard",
-        "ML Diagram Generator"
+        "💬 AI Chatbot",
+        "📋 Attendance Entry",
+        "📊 Attendance Dashboard",
+        "📈 ML Diagram Generator"
     ]
 )
 
-# ---------------- AI CHATBOT ----------------
+# ---------------- CHATBOT ----------------
 
-if menu == "AI Chatbot":
+if menu == "💬 AI Chatbot":
 
-    st.header("🤖 AI Tutor")
+    st.header("AI Tutor")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -38,13 +43,11 @@ if menu == "AI Chatbot":
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    prompt = st.chat_input("Ask your ML question")
+    prompt = st.chat_input("Ask Machine Learning question")
 
     if prompt:
 
-        st.session_state.messages.append(
-            {"role":"user","content":prompt}
-        )
+        st.session_state.messages.append({"role":"user","content":prompt})
 
         with st.chat_message("user"):
             st.write(prompt)
@@ -63,70 +66,78 @@ if menu == "AI Chatbot":
             {"role":"assistant","content":reply}
         )
 
-# ---------------- MOBILE ATTENDANCE ----------------
+# ---------------- ATTENDANCE ENTRY ----------------
 
-if menu == "Mobile Attendance":
+if menu == "📋 Attendance Entry":
 
-    st.header("📱 Mobile Attendance")
+    st.header("Student Attendance")
 
     df = pd.read_csv("students.csv")
 
-    reg = st.selectbox("Select Register Number", df["Register"])
+    today = st.date_input("Select Date", date.today())
 
-    photo = camera_input_live()
+    attendance_data = []
 
-    if photo:
+    for i,row in df.iterrows():
 
-        st.image(photo)
+        status = st.selectbox(
+            f"{row['Register']} - {row['Name']}",
+            ["Present","Absent"],
+            key=row["Register"]
+        )
 
-    if st.button("Mark Attendance"):
-
-        today = date.today()
-
-        data = pd.DataFrame({
-            "Register":[reg],
-            "Date":[today]
+        attendance_data.append({
+            "Register":row["Register"],
+            "Name":row["Name"],
+            "Status":status,
+            "Date":today
         })
 
+    if st.button("Save Attendance"):
+
+        new_df = pd.DataFrame(attendance_data)
+
         if os.path.exists("attendance.csv"):
-            data.to_csv("attendance.csv",mode="a",header=False,index=False)
+            new_df.to_csv("attendance.csv",mode="a",index=False,header=False)
         else:
-            data.to_csv("attendance.csv",index=False)
+            new_df.to_csv("attendance.csv",index=False)
 
-        st.success("Attendance Marked")
+        st.success("Attendance saved")
 
-# ---------------- DASHBOARD ----------------
+# ---------------- ATTENDANCE DASHBOARD ----------------
 
-if menu == "Attendance Dashboard":
+if menu == "📊 Attendance Dashboard":
 
-    st.header("📊 Attendance Analytics")
+    st.header("Attendance Analytics")
 
     if os.path.exists("attendance.csv"):
 
         data = pd.read_csv("attendance.csv")
 
-        summary = data.groupby("Register").count()
+        summary = data.groupby("Status").size().reset_index(name="Count")
 
-        fig = px.bar(summary,y="Date")
+        fig = px.pie(summary,values="Count",names="Status")
 
         st.plotly_chart(fig)
+
+        st.subheader("Attendance Records")
 
         st.dataframe(data)
 
         st.download_button(
-            "Download Attendance",
+            "Download CSV",
             data.to_csv(index=False),
             "attendance.csv"
         )
 
     else:
-        st.info("No attendance data")
+        st.info("No attendance data yet")
 
-# ---------------- ML DIAGRAM ----------------
+# ---------------- ML DIAGRAMS ----------------
 
-if menu == "ML Diagram Generator":
+if menu == "📈 ML Diagram Generator":
 
-    st.header("📈 Machine Learning Diagram")
+    st.header("Machine Learning Diagrams")
 
     algo = st.selectbox(
         "Select Algorithm",
@@ -146,15 +157,22 @@ if menu == "ML Diagram Generator":
 
     if algo == "Neural Network":
 
-        dot.node("I1","Input")
-        dot.node("H1","Hidden")
+        dot.node("I1","Input1")
+        dot.node("I2","Input2")
+        dot.node("H1","Hidden1")
+        dot.node("H2","Hidden2")
         dot.node("O","Output")
 
-        dot.edges([("I1","H1"),("H1","O")])
+        dot.edges([
+            ("I1","H1"),
+            ("I2","H1"),
+            ("H1","H2"),
+            ("H2","O")
+        ])
 
     if algo == "K-Means":
 
-        dot.node("A","Data")
+        dot.node("A","Data Points")
         dot.node("B","Cluster 1")
         dot.node("C","Cluster 2")
 
