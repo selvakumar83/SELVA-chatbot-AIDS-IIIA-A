@@ -8,7 +8,7 @@ import os
 
 st.set_page_config(page_title="AI Classroom Platform", layout="wide")
 
-st.title("🎓 AI Classroom Platform")
+st.title("🎓 AI&DS AI Classroom Platform")
 
 # ---------------- API ----------------
 
