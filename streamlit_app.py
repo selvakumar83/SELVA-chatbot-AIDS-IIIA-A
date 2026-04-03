@@ -1,46 +1,58 @@
 import streamlit as st
 from groq import Groq
 
-# Initialize Groq client
+# Page configuration
+st.set_page_config(page_title="AI Student Chatbot", page_icon="🤖")
+
+st.title("🤖 AI Chatbot for Students")
+
+# Initialize Groq API
 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-st.set_page_config(page_title="AI Student Chatbot")
-
-st.title("🎓 AI Student Chatbot")
-
-st.write("Ask questions about Machine Learning, Python, or assignments.")
 
 # Chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display old messages
+# Show previous messages
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# Chat input
+# User input
 prompt = st.chat_input("Ask your question")
 
 if prompt:
 
-    st.session_state.messages.append(
-        {"role": "user", "content": prompt}
-    )
-
+    # Show user message
     with st.chat_message("user"):
         st.write(prompt)
 
-    response = client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=st.session_state.messages
-    )
+    # Save user message
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt
+    })
 
-    reply = response.choices[0].message.content
+    try:
 
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "system", "content": "You are a helpful AI tutor for engineering students."}
+            ] + st.session_state.messages
+        )
+
+        reply = response.choices[0].message.content
+
+    except Exception as e:
+        reply = "⚠️ Error connecting to AI model."
+
+    # Show AI response
     with st.chat_message("assistant"):
         st.write(reply)
 
-    st.session_state.messages.append(
-        {"role": "assistant", "content": reply}
-    )
+    # Save AI response
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": reply
+    })
