@@ -1,181 +1,96 @@
 import streamlit as st
+import face_recognition
+import numpy as np
 import pandas as pd
-from groq import Groq
-import graphviz
-import plotly.express as px
-from datetime import date
 import os
+import cv2
+from datetime import datetime
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-st.set_page_config(page_title="AI Classroom Platform", layout="wide")
+st.title("📱 Mobile Face Attendance System")
 
-st.title("🎓 AI Classroom Platform")
+# Load students
+students = pd.read_csv("students.csv")
 
-# ---------------- API ----------------
+known_encodings = []
+known_ids = []
 
-try:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except:
-    st.error("Please add GROQ_API_KEY in Streamlit secrets")
-    st.stop()
+# Load face images
+for file in os.listdir("faces"):
+    img = face_recognition.load_image_file(f"faces/{file}")
+    encoding = face_recognition.face_encodings(img)[0]
 
-# ---------------- MENU ----------------
+    known_encodings.append(encoding)
+    known_ids.append(file.split(".")[0])
 
-menu = st.sidebar.radio(
-    "Select Module",
-    [
-        "💬 AI Chatbot",
-        "📋 Attendance Entry",
-        "📊 Attendance Dashboard",
-        "📈 ML Diagram Generator"
-    ]
+attendance = set()
+
+class FaceAttendance(VideoTransformerBase):
+
+    def transform(self, frame):
+
+        img = frame.to_ndarray(format="bgr24")
+
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        faces = face_recognition.face_locations(rgb)
+        encodings = face_recognition.face_encodings(rgb, faces)
+
+        for encoding, face_location in zip(encodings, faces):
+
+            matches = face_recognition.compare_faces(
+                known_encodings,
+                encoding
+            )
+
+            name = "Unknown"
+
+            if True in matches:
+
+                index = matches.index(True)
+                name = known_ids[index]
+
+                attendance.add(name)
+
+            top, right, bottom, left = face_location
+
+            cv2.rectangle(
+                img,
+                (left, top),
+                (right, bottom),
+                (0,255,0),
+                2
+            )
+
+            cv2.putText(
+                img,
+                name,
+                (left, top-10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0,255,0),
+                2
+            )
+
+        return img
+
+webrtc_streamer(
+    key="attendance",
+    video_transformer_factory=FaceAttendance
 )
 
-# ---------------- CHATBOT ----------------
+if st.button("Save Attendance"):
 
-if menu == "💬 AI Chatbot":
+    if attendance:
 
-    st.header("AI Tutor")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.write(msg["content"])
-
-    prompt = st.chat_input("Ask Machine Learning question")
-
-    if prompt:
-
-        st.session_state.messages.append({"role":"user","content":prompt})
-
-        with st.chat_message("user"):
-            st.write(prompt)
-
-        response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=st.session_state.messages
-        )
-
-        reply = response.choices[0].message.content
-
-        with st.chat_message("assistant"):
-            st.write(reply)
-
-        st.session_state.messages.append(
-            {"role":"assistant","content":reply}
-        )
-
-# ---------------- ATTENDANCE ENTRY ----------------
-
-if menu == "📋 Attendance Entry":
-
-    st.header("Student Attendance")
-
-    df = pd.read_csv("students.csv")
-
-    today = st.date_input("Select Date", date.today())
-
-    attendance_data = []
-
-    for i,row in df.iterrows():
-
-        status = st.selectbox(
-            f"{row['Register']} - {row['Name']}",
-            ["Present","Absent"],
-            key=row["Register"]
-        )
-
-        attendance_data.append({
-            "Register":row["Register"],
-            "Name":row["Name"],
-            "Status":status,
-            "Date":today
-        })
-
-    if st.button("Save Attendance"):
-
-        new_df = pd.DataFrame(attendance_data)
+        df = pd.DataFrame(list(attendance), columns=["Register"])
+        df["Date"] = datetime.now().date()
 
         if os.path.exists("attendance.csv"):
-            new_df.to_csv("attendance.csv",mode="a",index=False,header=False)
+            df.to_csv("attendance.csv", mode="a", header=False, index=False)
         else:
-            new_df.to_csv("attendance.csv",index=False)
+            df.to_csv("attendance.csv", index=False)
 
-        st.success("Attendance saved")
+        st.success("Attendance Saved")
 
-# ---------------- ATTENDANCE DASHBOARD ----------------
-
-if menu == "📊 Attendance Dashboard":
-
-    st.header("Attendance Analytics")
-
-    if os.path.exists("attendance.csv"):
-
-        data = pd.read_csv("attendance.csv")
-
-        summary = data.groupby("Status").size().reset_index(name="Count")
-
-        fig = px.pie(summary,values="Count",names="Status")
-
-        st.plotly_chart(fig)
-
-        st.subheader("Attendance Records")
-
-        st.dataframe(data)
-
-        st.download_button(
-            "Download CSV",
-            data.to_csv(index=False),
-            "attendance.csv"
-        )
-
-    else:
-        st.info("No attendance data yet")
-
-# ---------------- ML DIAGRAMS ----------------
-
-if menu == "📈 ML Diagram Generator":
-
-    st.header("Machine Learning Diagrams")
-
-    algo = st.selectbox(
-        "Select Algorithm",
-        ["Decision Tree","Neural Network","K-Means"]
-    )
-
-    dot = graphviz.Digraph()
-
-    if algo == "Decision Tree":
-
-        dot.node("A","Root")
-        dot.node("B","Feature < 5")
-        dot.node("C","Class A")
-        dot.node("D","Class B")
-
-        dot.edges(["AB","BC","BD"])
-
-    if algo == "Neural Network":
-
-        dot.node("I1","Input1")
-        dot.node("I2","Input2")
-        dot.node("H1","Hidden1")
-        dot.node("H2","Hidden2")
-        dot.node("O","Output")
-
-        dot.edges([
-            ("I1","H1"),
-            ("I2","H1"),
-            ("H1","H2"),
-            ("H2","O")
-        ])
-
-    if algo == "K-Means":
-
-        dot.node("A","Data Points")
-        dot.node("B","Cluster 1")
-        dot.node("C","Cluster 2")
-
-        dot.edges([("A","B"),("A","C")])
-
-    st.graphviz_chart(dot)
+        st.dataframe(df)
