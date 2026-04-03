@@ -1,5 +1,6 @@
 streamlit
-groq
+opencv-python-headless
+face-recognition
 pandas
-graphviz
-plotly
+numpy
+streamlit-webrtc
