@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # HuggingFace free model API
-API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 
 st.set_page_config(page_title="AI Student Chatbot")
 
